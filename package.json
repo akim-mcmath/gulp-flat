@@ -13,7 +13,8 @@
     "jshint": "jshint . --exclude-path .gitignore",
     "mocha": "istanbul cover _mocha",
     "coverage": "npm test && open ./coverage/lcov-report/index.html",
-    "coveralls": "cat ./coverage/lcov.info | coveralls"
+    "coveralls": "cat ./coverage/lcov.info | coveralls",
+    "postversion": "npm test"
   },
   "author": "Daniel Caspers (http://likeabossa.com/)",
   "contributors": [
