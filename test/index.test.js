@@ -98,7 +98,7 @@ describe('plugin:gulp-flat', function() {
       expect(gutil.File.isVinyl(file)).to.be.true;
     });
 
-    it('files are in buffer mode', function() {
+    it('files are in streaming mode', function() {
       expect(file.isStream()).to.be.true;
     });
 
