@@ -87,13 +87,11 @@ describe('plugin:gulp-flat', function() {
 
     var file;
     beforeEach('run through plugin', function(done) {
-      gulpFlat().once('data', function(_file) {
-        file = _file;
-        done();
-      }).write(new gutil.File({
+      file = new gutil.File({
         path: 'some/path/to/mock.json',
         contents: es.readArray(mockJson.toString().split(/(,)/g))
-      }));
+      });
+      gulpFlat().once('data', done.bind(null, null)).write(file);
     });
 
     it('returns a stream of Vinyl files', function() {
