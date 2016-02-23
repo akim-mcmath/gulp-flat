@@ -1,99 +1,76 @@
-/**
- * Created by casperd on 2/22/2016.
- */
+'use strict';
 
-var through = require('through2');
-var gutil = require('gulp-util');
+var inherits = require('util').inherits;
+var Transform = require('stream').Transform;
+var PluginError = require('gulp-util').PluginError;
 var flatten = require('flat');
-var PluginError = gutil.PluginError;
 
-// consts
-const PLUGIN_NAME = 'gulp-flat';
-
-//function gulpFlat() {
-//    var stream = through();
-//    stream.write(flatten(file.contents));
-//    return stream;
-//}
-
-// plugin level function (dealing with files)
-function flattenGulp() {
-
-    // creating a stream through which each file will pass
-    var stream = through.obj(function(file, enc, cb) {
-        if (file.isBuffer()) {
-            var flatJSON = new Buffer(
-                JSON.stringify(
-                    flatten(
-                        file.contents)));
-            file.contents = flatJSON;
-        }
-
-        if (file.isStream()) {
-
-            this.emit('error', new PluginError(PLUGIN_NAME, 'Streams not supported! NYI'));
-            return cb();
-        }
-
-        // make sure the file goes through the next gulp plugin
-        this.push(file);
-        // tell the stream engine that we are done with this file
-        cb();
-    });
-
-    // returning the file stream
-    return stream;
+/**
+ * Main plugin function. In addition to the options below, any option available
+ * to the flat npm package may be passed. See https://www.npmjs.com/package/flat
+ *
+ * @param {object} opts - An options object.
+ * @param {boolean} opts.pretty - Prettifies the output if true.
+ * @returns {Transform} A Node.js Transform stream.
+ */
+function gulpFlat(opts) {
+  if (opts && !/object|function/.test(typeof opts)) {
+    throwPluginError('opts must be an object or undefined');
+  }
+  return new GulpFlatStream(opts);
 }
 
-// exporting the plugin main function
-module.exports = flattenGulp;
+// Stream returned by main plugin function.
+function GulpFlatStream(opts) {
+  Transform.call(this, {objectMode: true});
+  this.opts = opts || {};
+}
 
-///**
-// * Created by casperd on 2/22/2016.
-// */
-//
-//var through = require('through2');
-//var gutil = require('gulp-util');
-//var flatten = require('flat');
-//var PluginError = gutil.PluginError;
-//
-//// consts
-//const PLUGIN_NAME = 'gulp-flat';
-//
-//function gulpFlat() {
-//    var stream = through();
-//    stream.write(flatten(file.contents));
-//    return stream;
-//}
-//
-//// plugin level function (dealing with files)
-//function flattenGulp() {
-//
-//    // creating a stream through which each file will pass
-//    var stream = through.obj(function(file, enc, cb) {
-//        if (file.isBuffer()) {
-//            this.emit('error', new PluginError(PLUGIN_NAME, 'Buffers not supported!'));
-//            return cb();
-//        }
-//
-//        if (file.isStream()) {
-//            // define the streamer that will transform the content
-//            var streamer = gulpFlat();
-//            // catch errors from the streamer and emit a gulp plugin error
-//            streamer.on('error', this.emit.bind(this, 'error'));
-//            // start the transformation
-//            file.contents = file.contents.pipe(streamer);
-//        }
-//
-//        // make sure the file goes through the next gulp plugin
-//        this.push(file);
-//        // tell the stream engine that we are done with this file
-//        cb();
-//    });
-//
-//    // returning the file stream
-//    return stream;
-//}
-//
-//// exporting the plugin main function
-//module.exports = gulpFlat;
+inherits(GulpFlatStream, Transform);
+
+GulpFlatStream.prototype._transform = function(file, enc, next) {
+  if (file.isBuffer()) {
+    file.contents = flattenContents(file.contents, this.opts);
+  }
+
+  if (file.isStream()) {
+    file.contents = file.contents.pipe(new FlattenContentsStream(this.opts));
+  }
+
+  next(null, file);
+};
+
+// Stream to pipe contents to if File is in streaming mode.
+function FlattenContentsStream(opts) {
+  Transform.call(this);
+  this.opts = opts;
+  this.data = [];
+}
+
+inherits(FlattenContentsStream, Transform);
+
+FlattenContentsStream.prototype._transform = function(chunk, enc, next) {
+  this.data.push(chunk);
+  next();
+};
+
+FlattenContentsStream.prototype._flush = function(done) {
+  var contents = Buffer.concat(this.data);
+  this.push(flattenContents(contents, this.opts));
+  done();
+};
+
+// Takes a Buffer and an options object, and returns a flattened JSON Buffer.
+function flattenContents(contents, opts) {
+  var flatJson = flatten(JSON.parse(contents), opts);
+  var flatString = JSON.stringify(flatJson, null, opts.pretty ? 2 : null);
+  return new Buffer(flatString);
+}
+
+// Helper function to throw PluginError if user input is incorrect.
+function throwPluginError(message) {
+  throw new PluginError('gulp-flat', message);
+}
+
+// Export main plugin function.
+module.exports = gulpFlat;

@@ -1,0 +1,9 @@
+{
+  "string": "this is a string",
+  "boolean": true,
+  "object": {
+    "this": "is",
+    "an": "object"
+  },
+  "array": [1, 2, 3]
+}
